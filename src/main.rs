@@ -1,4 +1,5 @@
 use actix_web::{get, web, App, HttpServer, Responder, Result};
+use actix_cors::Cors;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -38,12 +39,20 @@ async fn main() -> std::io::Result<()> {
     });
 
     HttpServer::new(move || {
+        // Configure CORS
+        let cors = Cors::default()
+            .allow_any_origin()
+            .allow_any_method()
+            .allow_any_header()
+            .max_age(3600);
+
         App::new()
+            .wrap(cors)
             .app_data(app_state.clone())
             .service(health)
             .service(calc_fib)
     })
-    .bind(("127.0.0.1", 9100))?
+    .bind(("127.0.0.1", 8080))?
     .run()
     .await
 }
