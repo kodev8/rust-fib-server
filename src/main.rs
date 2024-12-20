@@ -2,16 +2,23 @@ use actix_web::{get, web, App, HttpServer, Responder, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Mutex;
+use actix_cors::Cors;
+use actix_web::middleware::Logger;
+use env_logger::Env;
+use num_bigint::BigInt;
+use num_traits::{One, Zero};
 
 #[derive(Serialize)]
 struct Fib {
     message: String,
-    fib: usize,
+    #[serde(with = "bigint_serialize")]
+    fib: BigInt,
+    cached: bool,
 }
 
 #[derive(Deserialize)]
 struct FibRequest {
-    num: i32,
+    num: Option<i64>,
 }
 
 #[derive(Serialize)]
@@ -19,29 +26,45 @@ struct HealthResponse {
     message: String,
 }
 
-// Make Fibonacci Clone-able so it can be shared between threads
+// Serialization helper for BigInt
+mod bigint_serialize {
+    use num_bigint::BigInt;
+    use serde::{Serializer, Serialize};
+
+    pub fn serialize<S>(num: &BigInt, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        num.to_string().serialize(serializer)
+    }
+}
+
 #[derive(Clone)]
 struct AppState {
-    fib_store: web::Data<Mutex<HashMap<i32, i32>>>,
+    fib_store: web::Data<Mutex<HashMap<i64, BigInt>>>,
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    // Initialize the fibonacci store with base cases
-    let mut store = HashMap::new();
-    store.insert(0, 0);
-    store.insert(1, 1);
-    
-    // Wrap the store in web::Data and Mutex for thread-safe sharing
-    let app_state = web::Data::new(AppState {
-        fib_store: web::Data::new(Mutex::new(store)),
-    });
+    env_logger::init_from_env(Env::default().default_filter_or("info"));
 
     HttpServer::new(move || {
+        let cors = Cors::permissive();
+
+        let mut store = HashMap::new();
+        store.insert(0, BigInt::zero());
+        store.insert(1, BigInt::one());
+
+        let app_state = web::Data::new(AppState {
+            fib_store: web::Data::new(Mutex::new(store)),
+        });
+
         App::new()
-            .app_data(app_state.clone())
+            .wrap(cors)
+            .app_data(app_state)
             .service(health)
             .service(calc_fib)
+            .wrap(Logger::default())
     })
     .bind(("127.0.0.1", 9100))?
     .run()
@@ -63,37 +86,66 @@ async fn calc_fib(
     let num = fib_request.num;
     let mut store = data.fib_store.lock().unwrap();
 
-    // Check if we already have the result cached
-    if let Some(&result) = store.get(&num) {
-        return Ok(web::Json(Fib {
-            message: "Fibonacci (cached)".to_string(),
-            fib: result as usize,
-        }));
-    }
+    match num {
+        Some(num) => {
+            if num < 0 {
+                return Ok(web::Json(Fib {
+                    message: "Number must be non-negative".to_string(),
+                    fib: BigInt::zero(),
+                    cached: false,
+                }));
+            }
 
-    // Calculate new Fibonacci number
-    let result = find_nth_fibonacci(num, &mut store);
-    
-    Ok(web::Json(Fib {
-        message: "Fibonacci".to_string(),
-        fib: result as usize,
-    }))
+            let (result, was_cached) = match store.get(&num) {
+                Some(fib) => (fib.clone(), true),
+                None => (find_nth_fibonacci(num, &mut store), false),
+            };
+
+            let message = if was_cached {
+                format!("Fibonacci number {} retrieved from cache", num)
+            } else {
+                format!("Fibonacci number {} calculated", num)
+            };
+
+            Ok(web::Json(Fib {
+                message,
+                fib: result,
+                cached: was_cached,
+            }))
+        }
+        None => Ok(web::Json(Fib {
+            message: "No number provided".to_string(),
+            fib: BigInt::from(-1),
+            cached: false,
+        })),
+    }
 }
 
-fn find_nth_fibonacci(num: i32, store: &mut HashMap<i32, i32>) -> i32 {
+fn find_nth_fibonacci(num: i64, store: &mut HashMap<i64, BigInt>) -> BigInt {
     if num <= 1 {
-        return num;
+        return if num == 0 { BigInt::zero() } else { BigInt::one() };
     }
 
-    let mut fib_sum = 0;
-    let mut previous = 1;
-
-    for i in 0..num {
-        let temp = previous;
-        previous = fib_sum;
-        fib_sum = fib_sum + temp;
-        store.insert(i + 1, fib_sum);
+    // Find the largest calculated Fibonacci number in our store
+    let mut max_calculated = 1;
+    for i in 0..=num {
+        if store.contains_key(&i) {
+            max_calculated = i;
+        } else {
+            break;
+        }
     }
 
-    fib_sum
+    // Calculate remaining numbers iteratively
+    let mut current = store.get(&max_calculated).unwrap().clone();
+    let mut prev = store.get(&(max_calculated - 1)).unwrap().clone();
+
+    for n in (max_calculated + 1)..=num {
+        let next = current.clone() + prev.clone();
+        store.insert(n, next.clone());
+        prev = current;
+        current = next;
+    }
+
+    store.get(&num).unwrap().clone()
 }
