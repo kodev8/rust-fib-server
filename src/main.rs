@@ -11,7 +11,8 @@ use num_traits::{One, Zero};
 #[derive(Serialize, Deserialize)]
 struct Fib {
     message: String,
-    fib: BigInt,
+    // #[serde(serialize_with = "serialize_bigint")]
+    fib: String,
     cached: bool,
 }
 
@@ -34,7 +35,7 @@ struct AppState {
 async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(Env::default().default_filter_or("info"));
 
-    HttpServer::new(move || {
+    HttpServer::new(|| {
         let cors = Cors::permissive();
 
         let mut store = HashMap::new();
@@ -52,7 +53,7 @@ async fn main() -> std::io::Result<()> {
             .service(calc_fib)
             .wrap(Logger::default())
     })
-    .bind(("127.0.0.1", 9100))?
+    .bind(("0.0.0.0", 8000))?
     .run()
     .await
 }
@@ -77,7 +78,7 @@ async fn calc_fib(
             if num < 0 {
                 return Ok(web::Json(Fib {
                     message: "Number must be non-negative".to_string(),
-                    fib: BigInt::zero(),
+                    fib: BigInt::zero().to_string(),
                     cached: false,
                 }));
             }
@@ -95,13 +96,13 @@ async fn calc_fib(
 
             Ok(web::Json(Fib {
                 message,
-                fib: result,
+                fib: result.to_string(),
                 cached: was_cached,
             }))
         }
         None => Ok(web::Json(Fib {
             message: "No number provided".to_string(),
-            fib: BigInt::from(-1),
+            fib: BigInt::from(-1).to_string(),
             cached: false,
         })),
     }
@@ -187,12 +188,14 @@ mod tests {
         ];
 
         for (input, expected) in test_cases {
+
             let req = test::TestRequest::get()
                 .uri(&format!("/fib?num={}", input))
                 .to_request();
+
             let resp: Fib = test::call_and_read_body_json(&app, req).await;
             
-            assert_eq!(resp.fib.to_string(), expected);
+            assert_eq!(resp.fib, expected);
             
             // First call should not be cached
             if input <= 1 {
@@ -205,7 +208,9 @@ mod tests {
             let req2 = test::TestRequest::get()
                 .uri(&format!("/fib?num={}", input))
                 .to_request();
+            
             let resp2: Fib = test::call_and_read_body_json(&app, req2).await;
+
             assert!(resp2.cached, "Second call should be cached");
         }
     }
@@ -218,7 +223,7 @@ mod tests {
             .to_request();
         let resp: Fib = test::call_and_read_body_json(&app, req).await;
         
-        assert_eq!(resp.fib.to_string(), "0");
+        assert_eq!(resp.fib, "0");
         assert_eq!(resp.message, "Number must be non-negative");
         assert!(!resp.cached);
     }
@@ -231,7 +236,7 @@ mod tests {
             .to_request();
         let resp: Fib = test::call_and_read_body_json(&app, req).await;
         
-        assert_eq!(resp.fib.to_string(), "-1");
+        assert_eq!(resp.fib, "-1");
         assert_eq!(resp.message, "No number provided");
         assert!(!resp.cached);
     }
@@ -240,11 +245,12 @@ mod tests {
     async fn test_fibonacci_larger_number() {
         let app = create_test_app().await;
         let req = test::TestRequest::get()
-            .uri("/fib?num=20")
+            .uri("/fib?num=20") 
             .to_request();
         let resp: Fib = test::call_and_read_body_json(&app, req).await;
         
-        assert_eq!(resp.fib.to_string(), "6765"); // 20th Fibonacci number
+        // 20th fib should be 6765
+        assert_eq!(resp.fib, "6765"); 
         assert!(!resp.cached);
 
         // Verify intermediate results are cached
@@ -261,29 +267,30 @@ mod tests {
     async fn test_fibonacci_caching_behavior() {
         let app = create_test_app().await;
 
-        // First request - should calculate and cache
+        // First request should calculate the result and cache it for the second request
         let req1 = test::TestRequest::get()
             .uri("/fib?num=10")
             .to_request();
         let resp1: Fib = test::call_and_read_body_json(&app, req1).await;
-        assert!(!resp1.cached);
-        assert_eq!(resp1.fib.to_string(), "55");
 
-        // Second request - should use cache
+        assert!(!resp1.cached);
+        assert_eq!(resp1.fib, "55");
+
         let req2 = test::TestRequest::get()
             .uri("/fib?num=10")
             .to_request();
+
         let resp2: Fib = test::call_and_read_body_json(&app, req2).await;
+
         assert!(resp2.cached);
-        assert_eq!(resp2.fib.to_string(), "55");
+        assert_eq!(resp2.fib, "55");
         assert!(resp2.message.contains("retrieved from cache"));
 
-        // Check that intermediate values are cached
         let req3 = test::TestRequest::get()
             .uri("/fib?num=5")
             .to_request();
         let resp3: Fib = test::call_and_read_body_json(&app, req3).await;
         assert!(resp3.cached);
-        assert_eq!(resp3.fib.to_string(), "5");
+        assert_eq!(resp3.fib, "5");
     }
 }
