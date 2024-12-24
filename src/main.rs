@@ -3,7 +3,7 @@ use actix_cors::Cors;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Mutex;
-use actix_cors::Cors;
+// use actix_cors::Cors;
 use actix_web::middleware::Logger;
 use env_logger::Env;
 use num_bigint::BigInt;
@@ -53,6 +53,7 @@ async fn main() -> std::io::Result<()> {
             .service(health)
             .service(calc_fib)
             .wrap(Logger::default())
+
     })
     .bind(("0.0.0.0", 8000))?
     .run()
