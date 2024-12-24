@@ -17,10 +17,10 @@ pub struct HashMapStore {
 impl HashMapStore {
     #[allow(dead_code)]
     pub fn new() -> Self {
-        let store = Self {
+        Self {
             store: HashMap::new(),
-        };
-        store
+        }
+
     }
 }
 

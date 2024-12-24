@@ -29,8 +29,7 @@ fn find_factorial<S: Store>(num: i64, store: &mut S) -> Result<(BigInt, bool), S
 
     // Get the last calculated factorial
     let mut result = store.get(max_calculated)?
-        .unwrap_or_else(|| BigInt::one());
-
+        .unwrap_or_else(BigInt::one);
     // Calculate remaining numbers iteratively
     for i in (max_calculated + 1)..=num {
         result *= i;

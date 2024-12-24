@@ -35,8 +35,9 @@ fn find_nth_fibonacci<S: Store>(num: i64, store: &mut S) -> Result<(BigInt, bool
     }
 
     // Get the last two calculated numbers
-    let mut current = store.get(max_calculated)?.unwrap_or_else(|| BigInt::one());
-    let mut prev = store.get(max_calculated - 1)?.unwrap_or_else(|| BigInt::zero());
+
+    let mut current = store.get(max_calculated)?.unwrap_or_else(BigInt::one);
+    let mut prev = store.get(max_calculated - 1)?.unwrap_or_else(BigInt::zero);
 
     // Calculate remaining numbers iteratively
     for n in (max_calculated + 1)..=num {
