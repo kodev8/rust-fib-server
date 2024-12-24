@@ -20,6 +20,7 @@ impl HashMapStore {
         Self {
             store: HashMap::new(),
         }
+
     }
 }
 
