@@ -6,6 +6,9 @@ interface FibResponse {
   fib: number;
 }
 
+// Get API URL from environment variable or fallback to localhost
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+
 export default function Calculator() {
   const [number, setNumber] = useState<string>("");
   const [result, setResult] = useState<FibResponse | null>(null);
@@ -22,12 +25,9 @@ export default function Calculator() {
     setError(null);
 
     try {
-      const response = await fetch(
-        `http://localhost:8080/fib?num=${parseInt(number)}`,
-        {
-          method: "GET",
-        }
-      );
+      const response = await fetch(`${API_URL}/fib?num=${parseInt(number)}`, {
+        method: "GET",
+      });
       if (!response.ok) {
         throw new Error("Failed to calculate Fibonacci number");
       }
@@ -46,9 +46,9 @@ export default function Calculator() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-purple-700 via-indigo-800 to-blue-900 p-8 flex items-center justify-center">
       {/* Navigation */}
-      <nav className="absolute top-8 right-8">
+      <nav className="absolute top-8 right-8 flex gap-4">
         <Link
-          to="/tony"
+          to="/"
           className="text-white/80 hover:text-white flex items-center gap-2
                      px-4 py-2 rounded-lg bg-white/10 backdrop-blur-sm
                      hover:bg-white/20 transition-all border border-white/20"
@@ -62,6 +62,22 @@ export default function Calculator() {
             <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
           </svg>
           Home
+        </Link>
+        <Link
+          to="/tony"
+          className="text-white/80 hover:text-white flex items-center gap-2
+                     px-4 py-2 rounded-lg bg-white/10 backdrop-blur-sm
+                     hover:bg-white/20 transition-all border border-white/20"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+          </svg>
+          Video
         </Link>
       </nav>
 
