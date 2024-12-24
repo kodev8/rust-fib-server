@@ -51,7 +51,7 @@ jobs:
         run: cargo clippy --all-targets --all-features --message-format=json > ./clippy-report.json
 
       - name: Upload clippy results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: clippy-results
           path: ./backend/clippy-report.json

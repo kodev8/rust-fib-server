@@ -14,4 +14,5 @@ log = "0.4"
 env_logger = "0.11.6"
 num-traits = "0.2.19"
 num-bigint = { version = "0.4.6", features = ["serde"] }
+redis = "0.27.6"
 
