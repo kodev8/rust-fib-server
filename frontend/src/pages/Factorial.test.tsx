@@ -1,40 +1,37 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
-import Calculator from "./Calculator";
+import Factorial from "./Factorial";
 
 // Mock fetch globally
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
-// Mock config module
-jest.mock("../config");
-
-describe("Calculator Component", () => {
+describe("Factorial Component", () => {
   beforeEach(() => {
     mockFetch.mockClear();
   });
 
-  const renderCalculator = () => {
+  const renderFactorial = () => {
     return render(
       <BrowserRouter>
-        <Calculator />
+        <Factorial />
       </BrowserRouter>
     );
   };
 
-  it("renders calculator component correctly", () => {
-    renderCalculator();
-    expect(screen.getByText("Fibonacci Calculator")).toBeInTheDocument();
+  it("renders factorial component correctly", () => {
+    renderFactorial();
+    expect(screen.getByText("Factorial Calculator")).toBeInTheDocument();
     expect(
       screen.getByPlaceholderText("Enter a non-negative number")
     ).toBeInTheDocument();
-    expect(screen.getByText("Calculate Fibonacci")).toBeInTheDocument();
+    expect(screen.getByText("Calculate Factorial")).toBeInTheDocument();
   });
 
   it("handles invalid input correctly", async () => {
-    renderCalculator();
+    renderFactorial();
     const input = screen.getByPlaceholderText("Enter a non-negative number");
-    const button = screen.getByText("Calculate Fibonacci");
+    const button = screen.getByText("Calculate Factorial");
 
     // Test negative number
     fireEvent.change(input, { target: { value: "-1" } });
@@ -58,8 +55,8 @@ describe("Calculator Component", () => {
     ).toBeInTheDocument();
   });
 
-  it("calculates fibonacci number successfully", async () => {
-    const mockResponse = { message: "Success", fib: 5 };
+  it("calculates factorial number successfully", async () => {
+    const mockResponse = { message: "Success", result: "120", cached: false };
     mockFetch.mockImplementationOnce(() =>
       Promise.resolve({
         ok: true,
@@ -67,20 +64,21 @@ describe("Calculator Component", () => {
       })
     );
 
-    renderCalculator();
+    renderFactorial();
     const input = screen.getByPlaceholderText("Enter a non-negative number");
-    const button = screen.getByText("Calculate Fibonacci");
+    const button = screen.getByText("Calculate Factorial");
 
     fireEvent.change(input, { target: { value: "5" } });
     fireEvent.click(button);
 
     await waitFor(() => {
       expect(screen.getByText("Success")).toBeInTheDocument();
-      expect(screen.getByText("5")).toBeInTheDocument();
+      expect(screen.getByText("120")).toBeInTheDocument();
+      expect(screen.getByText("Freshly calculated")).toBeInTheDocument();
     });
 
     expect(mockFetch).toHaveBeenCalledWith(
-      "http://localhost:8080/fib?num=5",
+      "http://localhost:8000/factorial?num=5",
       expect.any(Object)
     );
   });
@@ -90,9 +88,9 @@ describe("Calculator Component", () => {
       Promise.reject(new Error("API Error"))
     );
 
-    renderCalculator();
+    renderFactorial();
     const input = screen.getByPlaceholderText("Enter a non-negative number");
-    const button = screen.getByText("Calculate Fibonacci");
+    const button = screen.getByText("Calculate Factorial");
 
     fireEvent.change(input, { target: { value: "5" } });
     fireEvent.click(button);
@@ -104,11 +102,6 @@ describe("Calculator Component", () => {
         )
       ).toBeInTheDocument();
     });
-
-    expect(mockFetch).toHaveBeenCalledWith(
-      "http://localhost:8080/fib?num=5",
-      expect.any(Object)
-    );
   });
 
   it("shows loading state while calculating", async () => {
@@ -119,16 +112,21 @@ describe("Calculator Component", () => {
             () =>
               resolve({
                 ok: true,
-                json: () => Promise.resolve({ message: "Success", fib: 5 }),
+                json: () =>
+                  Promise.resolve({
+                    message: "Success",
+                    result: "120",
+                    cached: true,
+                  }),
               }),
             100
           )
         )
     );
 
-    renderCalculator();
+    renderFactorial();
     const input = screen.getByPlaceholderText("Enter a non-negative number");
-    const button = screen.getByText("Calculate Fibonacci");
+    const button = screen.getByText("Calculate Factorial");
 
     fireEvent.change(input, { target: { value: "5" } });
     fireEvent.click(button);
@@ -137,12 +135,18 @@ describe("Calculator Component", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Success")).toBeInTheDocument();
+      expect(screen.getByText("Result from cache")).toBeInTheDocument();
     });
   });
 
-  it("renders navigation link correctly", () => {
-    renderCalculator();
+  it("renders navigation links correctly", () => {
+    renderFactorial();
+    const videoLink = screen.getByText("Video");
     const homeLink = screen.getByText("Home");
+
+    expect(videoLink).toBeInTheDocument();
+    expect(videoLink.closest("a")).toHaveAttribute("href", "/tony");
+
     expect(homeLink).toBeInTheDocument();
     expect(homeLink.closest("a")).toHaveAttribute("href", "/");
   });

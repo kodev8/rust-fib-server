@@ -7,6 +7,7 @@ import {
 } from "react-router-dom";
 import Calculator from "./pages/Calculator";
 import Video from "./pages/video";
+import Factorial from "./pages/Factorial";
 
 function App() {
   const router = createBrowserRouter(
@@ -14,6 +15,7 @@ function App() {
       <Route path="/">
         <Route index element={<Calculator />} />
         <Route path="/tony" element={<Video />} />
+        <Route path="/factorial" element={<Factorial />} />
       </Route>
     )
   );

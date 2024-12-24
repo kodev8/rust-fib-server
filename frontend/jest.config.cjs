@@ -9,15 +9,12 @@ module.exports = {
     "\\.(css|less|scss|sass)$": "identity-obj-proxy",
     "^@/(.*)$": "<rootDir>/src/$1",
   },
-  setupFilesAfterEnv: ["<rootDir>/src/setupTests.ts"],
   testMatch: ["<rootDir>/src/**/*.test.{ts,tsx}"],
   transform: {
     "^.+\\.tsx?$": [
       "ts-jest",
       {
-        tsconfig: {
-          jsx: "react-jsx",
-        },
+        tsconfig: "tsconfig.test.json",
       },
     ],
   },
@@ -29,8 +26,5 @@ module.exports = {
       statements: 80,
     },
   },
-  globals: {
-    TextEncoder: require("util").TextEncoder,
-    TextDecoder: require("util").TextDecoder,
-  },
+  setupFilesAfterEnv: ["<rootDir>/src/setupTests.ts"],
 };

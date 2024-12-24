@@ -1,19 +1,22 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import config from "../config";
 
-interface FibResponse {
+interface FactorialResponse {
   message: string;
-  fib: number;
+  result: string;
+  cached: boolean;
 }
 
-export default function Calculator() {
+// Get API URL from environment variable or fallback to localhost
+const API_URL = "http://localhost:8000";
+
+export default function Factorial() {
   const [number, setNumber] = useState<string>("");
-  const [result, setResult] = useState<FibResponse | null>(null);
+  const [result, setResult] = useState<FactorialResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const calculateFib = async () => {
+  const calculateFactorial = async () => {
     if (!number || isNaN(Number(number)) || Number(number) < 0) {
       setError("Please enter a valid non-negative number");
       return;
@@ -24,15 +27,15 @@ export default function Calculator() {
 
     try {
       const response = await fetch(
-        `${config.FIBONACCI_API_URL}/fib?num=${parseInt(number)}`,
+        `${API_URL}/factorial?num=${parseInt(number)}`,
         {
           method: "GET",
         }
       );
       if (!response.ok) {
-        throw new Error("Failed to calculate Fibonacci number");
+        throw new Error("Failed to calculate Factorial number");
       }
-      const data: FibResponse = await response.json();
+      const data: FactorialResponse = await response.json();
       setResult(data);
     } catch (err) {
       console.error(err);
@@ -65,27 +68,6 @@ export default function Calculator() {
           Video
         </Link>
         <Link
-          to="/factorial"
-          className="text-white/80 hover:text-white flex items-center gap-2
-                     px-4 py-2 rounded-lg bg-white/10 backdrop-blur-sm
-                     hover:bg-white/20 transition-all border border-white/20"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-          >
-            <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
-            <path
-              fillRule="evenodd"
-              d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z"
-              clipRule="evenodd"
-            />
-          </svg>
-          Factorial
-        </Link>
-        <Link
           to="/"
           className="text-white/80 hover:text-white flex items-center gap-2
                      px-4 py-2 rounded-lg bg-white/10 backdrop-blur-sm
@@ -107,10 +89,10 @@ export default function Calculator() {
         <div className="backdrop-blur-sm bg-white/10 rounded-2xl shadow-2xl p-8 border border-white/20 transform transition-all hover:scale-[1.02]">
           <div className="mb-8 text-center">
             <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-blue-300 mb-2">
-              Fibonacci Calculator
+              Factorial Calculator
             </h1>
             <p className="text-blue-100 opacity-80">
-              Calculate any Fibonacci number instantly
+              Calculate any Factorial number instantly
             </p>
           </div>
 
@@ -136,7 +118,7 @@ export default function Calculator() {
             </div>
 
             <button
-              onClick={calculateFib}
+              onClick={calculateFactorial}
               disabled={loading}
               className={`w-full py-3 px-4 rounded-xl font-semibold text-white
                 relative overflow-hidden transition-all duration-300
@@ -155,7 +137,7 @@ export default function Calculator() {
                     Calculating...
                   </div>
                 ) : (
-                  "Calculate Fibonacci"
+                  "Calculate Factorial"
                 )}
               </span>
             </button>
@@ -175,7 +157,10 @@ export default function Calculator() {
                 <div className="mt-2 font-mono">
                   <p className="text-sm text-blue-200 mb-1">Result:</p>
                   <p className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-300 to-blue-300">
-                    {result.fib.toLocaleString()}
+                    {result.result}
+                  </p>
+                  <p className="text-sm text-blue-200 mt-2">
+                    {result.cached ? "Result from cache" : "Freshly calculated"}
                   </p>
                 </div>
               </div>
