@@ -1,0 +1,63 @@
+name: Rust CI
+
+on:
+  push:
+    paths:
+      - backend/**
+    branches:
+        - main
+        - dev  
+
+  pull_request:
+    branches: 
+        - main
+        - dev
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-Dwarnings"
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+
+      - name: Check formatting
+        run: cargo fmt --all
+
+      - name: Run clippy and generate report
+        run: cargo clippy --all-targets --all-features --message-format=json > ./clippy-report.json
+
+      - name: Upload clippy results
+        uses: actions/upload-artifact@v3
+        with:
+          name: clippy-results
+          path: ./backend/clippy-report.json
+
+      - name: Run tests
+        run: cargo test
+
+      - name: Check build
+        run: cargo check

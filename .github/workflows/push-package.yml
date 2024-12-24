@@ -1,0 +1,110 @@
+name: Create and publish Docker images
+
+on: 
+  push: 
+    branches:
+      - main
+  release:
+    types: [published]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push-images:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Check if backend Dockerfile exists
+      - name: Check backend Dockerfile
+        id: check_backend
+        run: |
+          if [ -f "./backend/Dockerfile" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Check if frontend Dockerfile exists
+      - name: Check frontend Dockerfile
+        id: check_frontend
+        run: |
+          if [ -f "./frontend/Dockerfile" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Only login if at least one Dockerfile exists
+      - name: Log in to the Container registry
+        if: steps.check_backend.outputs.exists == 'true' || steps.check_frontend.outputs.exists == 'true'
+        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Extract metadata only if at least one Dockerfile exists
+      - name: Extract metadata (tags, labels) for Docker
+        if: steps.check_backend.outputs.exists == 'true' || steps.check_frontend.outputs.exists == 'true'
+        id: meta
+        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}.{{minor}}.{{patch}}
+
+      # Build and push backend only if Dockerfile exists
+      - name: Build and push Backend Docker image
+        id: push-backend
+        if: steps.check_backend.outputs.exists == 'true'
+        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      # Generate backend attestation only if backend was built
+      - name: Generate backend artifact attestation
+        if: steps.check_backend.outputs.exists == 'true'
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME}}
+          subject-digest: ${{ steps.push-backend.outputs.digest }}
+          push-to-registry: true
+
+      # Build and push frontend only if Dockerfile exists
+      - name: Build and push Frontend Docker image
+        id: push-frontend
+        if: steps.check_frontend.outputs.exists == 'true'
+        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ steps.meta.outputs.version }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      # Generate frontend attestation only if frontend was built
+      - name: Generate frontend artifact attestation
+        if: steps.check_frontend.outputs.exists == 'true'
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME}}-frontend
+          subject-digest: ${{ steps.push-frontend.outputs.digest }}
+          push-to-registry: true
