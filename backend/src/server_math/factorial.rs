@@ -1,36 +1,40 @@
 use crate::server_math::req_resp::{MathResponse, NumRequest, AppState, BasicResponse};
+use crate::server_math::store::Store;
 use actix_web::{get, web, Responder, Result, HttpResponse};
 use num_bigint::BigInt;
-use std::collections::HashMap;
+use num_traits::One;
 
+fn find_factorial<S: Store>(num: i64, store: &mut S) -> Result<(BigInt, bool), String> {
 
-fn find_factorial(num: i64, store: &mut HashMap<i64, BigInt>) -> Result<(BigInt, bool), String> {
     if num < 0 {
         return Err("Number must be non-negative".to_string());
     }
 
     // Check if result is in cache
-    if let Some(result) = store.get(&num) {
-        return Ok((result.clone(), true));
+    if store.contains_key(num)? {
+        if let Some(result) = store.get(num)? {
+            return Ok((result, true));
+        }
     }
 
     // Find the largest calculated factorial in our store
     let mut max_calculated = 0;
     for i in 0..=num {
-        if store.contains_key(&i) {
+        if store.contains_key(i)? {
             max_calculated = i;
         } else {
             break;
         }
     }
 
-    // Start from the largest calculated factorial
-    let mut result = store.get(&max_calculated).unwrap().clone();
+    // Get the last calculated factorial
+    let mut result = store.get(max_calculated)?
+        .unwrap_or_else(|| BigInt::one());
 
     // Calculate remaining numbers iteratively
     for i in (max_calculated + 1)..=num {
         result *= i;
-        store.insert(i, result.clone());
+        store.set(i, &result)?;
     }
 
     Ok((result, false))
@@ -44,7 +48,7 @@ async fn calc_factorial(
     let num = fact_request.num.unwrap_or(0);
     let mut store = data.fact_store.lock().unwrap();
 
-    match find_factorial(num, &mut store) {
+    match find_factorial(num, &mut *store) {
         Ok((result, was_cached)) => {
             let message = if was_cached {
                 format!("Factorial of {} retrieved from cache", num)
@@ -52,16 +56,12 @@ async fn calc_factorial(
                 format!("Factorial of {} calculated", num)
             };
             
-            println!("{}", message);
-
             Ok(HttpResponse::Ok().json(MathResponse {
                 message,
                 result: result.to_string(),
                 cached: was_cached,
             }))
-           
         }
-
         Err(e) => {
             Ok(HttpResponse::BadRequest().json(BasicResponse {
                 message: e,
@@ -73,13 +73,16 @@ async fn calc_factorial(
 #[cfg(test)]
 mod factorial_tests {
     use super::*;
-    use std::collections::HashMap;
+    use crate::server_math::store::HashMapStore;
     use num_traits::One;
 
-    fn setup_test_store() -> HashMap<i64, BigInt> {
-        let mut store = HashMap::new();
-        store.insert(0, BigInt::one());
-        store.insert(1, BigInt::one());
+    fn setup_test_store() -> HashMapStore {
+        let mut store = HashMapStore::new();
+        
+        // Initialize base cases
+        let _ = store.set(0, &BigInt::one());
+        let _ = store.set(1, &BigInt::one());
+        
         store
     }
 
